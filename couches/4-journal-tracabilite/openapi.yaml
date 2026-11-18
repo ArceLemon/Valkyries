@@ -1,0 +1,220 @@
+openapi: 3.0.3
+info:
+  title: "KUMA BANA, couche 4 : journal de traçabilité"
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  description: |
+    Tout ce qui se passe est enregistré : connexions, connexions échouées, demandes, consultations,
+    consentements, révocations, modifications du catalogue.
+
+    Le journal est en ajout seul. Chaque ligne contient l'empreinte SHA-256 de la précédente : en
+    modifier une casse toute la chaîne qui suit. Des points de contrôle, signés avec la clé privée
+    de la plateforme (Ed25519), figent l'empreinte de tête : même avec un accès à la base, on ne
+    peut pas réécrire l'historique. Les points de contrôle et les clés publiques sont publics.
+
+    Les citoyens n'apparaissent que sous forme d'empreinte pseudonymisée (HMAC), tronquée à 12 caractères.
+servers:
+  - url: http://127.0.0.1:8000
+    description: API (docker compose up)
+tags:
+  - name: Journal
+    description: Administrateur et auditeur.
+  - name: Points de contrôle
+    description: Publics en lecture.
+  - name: Preuves
+    description: Vérification publique des attestations signées.
+paths:
+  /api/journal:
+    get:
+      operationId: getJournal
+      tags: [Journal]
+      summary: Les 200 dernières lignes du journal
+      security:
+        - Jeton: []
+      parameters:
+        - { name: action, in: query, schema: { type: string }, description: Filtrer par type d'événement. }
+        - { name: organisme, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Les lignes, de la plus récente à la plus ancienne.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/LigneJournal' }
+        '403':
+          description: Réservé à l'administrateur et à l'auditeur.
+  /api/journal/verifier-chaine:
+    post:
+      operationId: postJournalVerifierChaine
+      tags: [Journal]
+      summary: Recalculer toute la chaîne d'empreintes et contrôler chaque point signé
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Intègre, ou première rupture trouvée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Verification' }
+  /api/journal/points-de-controle:
+    get:
+      operationId: getJournalPointsDeControle
+      tags: [Points de contrôle]
+      summary: Les 50 derniers points de contrôle signés
+      security: []
+      responses:
+        '200':
+          description: Empreinte, signature et référence de la clé. Rien de personnel.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/PointDeControle' }
+    post:
+      operationId: postJournalPointsDeControle
+      tags: [Points de contrôle]
+      summary: Signer un point de contrôle maintenant
+      security:
+        - Jeton: []
+      responses:
+        '201':
+          description: Un nouveau point a été signé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultatPoint' }
+        '200':
+          description: Rien de nouveau depuis le dernier point.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultatPoint' }
+        '403':
+          description: Réservé à l'administrateur.
+  /api/preuves/verifier:
+    post:
+      operationId: postPreuvesVerifier
+      tags: [Preuves]
+      summary: Vérifier une attestation signée, sans compte
+      description: Limité à 60 appels par minute et par adresse, pour empêcher le test de jetons en masse.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jeton]
+              properties:
+                jeton: { type: string, maxLength: 4000 }
+      responses:
+        '200':
+          description: Le résultat de la vérification. Aucune donnée personnelle.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultatVerification' }
+        '429':
+          description: Trop d'appels.
+  /api/preuves/cles:
+    get:
+      operationId: getPreuvesCles
+      tags: [Preuves]
+      summary: Clés publiques de vérification
+      security: []
+      responses:
+        '200':
+          description: La clé active et toutes les clés publiques encore valables pour vérifier.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [active, cles]
+                properties:
+                  active: { type: string }
+                  cles:
+                    type: array
+                    items:
+                      type: object
+                      required: [kid, algorithme, cle_publique]
+                      properties:
+                        kid: { type: string }
+                        algorithme: { type: string, enum: [Ed25519] }
+                        cle_publique: { type: string }
+components:
+  securitySchemes:
+    Jeton:
+      type: http
+      scheme: bearer
+      description: Jeton personnel (/api/auth/connexion).
+  schemas:
+    LigneJournal:
+      type: object
+      required: [id, date, action, hash]
+      properties:
+        id: { type: integer }
+        date: { type: string }
+        acteur_type: { type: string, nullable: true }
+        acteur_id: { type: string, nullable: true, description: "Identifiant de l'acteur : utilisateur, clé d'API ou système." }
+        organisme: { type: integer, nullable: true }
+        action: { type: string, example: donnee.consultee }
+        objet: { type: string, nullable: true }
+        sujet: { type: string, nullable: true, description: "Empreinte tronquée du citoyen, jamais son identifiant." }
+        details: { type: object, nullable: true }
+        resultat: { type: string, nullable: true }
+        hash: { type: string, description: "Empreinte SHA-256 de la ligne, chaînée à la précédente." }
+    Verification:
+      type: object
+      required: [valide, total]
+      properties:
+        valide: { type: boolean }
+        total: { type: integer }
+        points_de_controle: { type: integer }
+        rupture:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            motif: { type: string }
+    PointDeControle:
+      type: object
+      required: [id, dernier_id, total, hash, kid, jeton]
+      properties:
+        id: { type: integer }
+        dernier_id: { type: integer }
+        total: { type: integer }
+        hash: { type: string }
+        kid: { type: string }
+        jeton: { type: string, description: Signature Ed25519 de l'empreinte de tête. }
+        cree_le: { type: string, format: date-time, nullable: true }
+    ResultatPoint:
+      type: object
+      required: [cree]
+      properties:
+        cree: { type: boolean }
+        dernier_id: { type: integer, nullable: true }
+    ResultatVerification:
+      type: object
+      required: [etat, attestation]
+      properties:
+        etat: { type: string, enum: [valide, expiree, alteree, revoquee, cle_inconnue] }
+        attestation:
+          type: object
+          nullable: true
+          properties:
+            question: { type: string, nullable: true }
+            parametre: { type: string, nullable: true }
+            reponse: { type: string, nullable: true }
+            demandeur: { type: string, nullable: true }
+            source: { type: string, nullable: true }
+            emise_le: { type: string, nullable: true }
+            valide_jusqu_au: { type: string, nullable: true }
+            kid: { type: string, nullable: true }

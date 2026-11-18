@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         defaultTestSuite="tout"
+>
+    <testsuites>
+        <!-- Par défaut : tous les tests (php artisan test) -->
+        <testsuite name="tout">
+            <directory>tests/Unit</directory>
+            <directory>tests/Feature</directory>
+            <directory>../couches/1-registres/tests</directory>
+            <directory>../couches/2-passerelle/tests</directory>
+            <directory>../couches/3-consentement-minimisation/tests</directory>
+            <directory>../couches/4-journal-tracabilite/tests</directory>
+            <directory>../couches/5-espace-usager/tests</directory>
+        </testsuite>
+
+        <!-- Une suite par couche, par exemple : php artisan test avec l'option testsuite=couche-3 -->
+        <testsuite name="couche-1">
+            <directory>../couches/1-registres/tests</directory>
+        </testsuite>
+        <testsuite name="couche-2">
+            <directory>../couches/2-passerelle/tests</directory>
+            <file>tests/Feature/DemandesTest.php</file>
+            <file>tests/Feature/CleApiTest.php</file>
+            <file>tests/Feature/PanneEtRepriseTest.php</file>
+        </testsuite>
+        <testsuite name="couche-3">
+            <directory>../couches/3-consentement-minimisation/tests</directory>
+            <file>tests/Unit/EvaluateurRegleTest.php</file>
+            <file>tests/Feature/ConsentementEtHistoriqueTest.php</file>
+            <file>tests/Feature/CatalogueEtHabilitationTest.php</file>
+            <file>tests/Feature/RevocationEtDroitsTest.php</file>
+        </testsuite>
+        <testsuite name="couche-4">
+            <directory>../couches/4-journal-tracabilite/tests</directory>
+            <file>tests/Feature/JournalEtPreuvesTest.php</file>
+            <file>tests/Feature/PointsDeControleTest.php</file>
+        </testsuite>
+        <testsuite name="couche-5">
+            <directory>../couches/5-espace-usager/tests</directory>
+            <file>tests/Feature/StatistiquesTest.php</file>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_URL" value=""/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
+</phpunit>

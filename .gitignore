@@ -1,0 +1,16 @@
+# État de panne des faux registres (généré pendant la démonstration)
+registres-demo/etat.json
+
+# Poste de travail
+Thumbs.db
+.DS_Store
+
+# Sorties générées
+portail/test-results/
+portail/playwright-report/
+mobile/build/
+
+# Fichiers de travail
+*.mp4
+*.m4a
+*.webm

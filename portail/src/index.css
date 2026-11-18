@@ -1,0 +1,550 @@
+/*
+  Charte graphique KUMA BANA, version lumineuse.
+
+  Les couleurs viennent du logo : bleu pétrole et bleu vif (le symbole et les lettres),
+  jaune et rouge (la carte du pays). Le vert est le vert du drapeau : il n'est pas dans
+  le logo, il sert uniquement à dire « oui, c'est bon ».
+
+  Rôles
+  - Bleu    : couleur principale, actions, navigation, liens.
+  - Jaune   : secondaire, attente, mise en avant chaleureuse.
+  - Rouge   : secondaire, refus, panne, actions destructrices.
+  - Vert    : réussite (oui, valide, en service).
+  La couleur n'est jamais seule : une icône et un texte disent la même chose.
+
+  Thème clair par défaut, quel que soit le thème du système. Le thème sombre se choisit
+  avec le bouton lune/soleil, qui pose data-theme="dark" sur <html>.
+*/
+
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+@import 'tailwindcss';
+
+/* ---------- Couleurs de marque (relevées sur le logo) ---------- */
+:root {
+  --brand-marine: #023e58;
+  --brand-petrole: #035c75;
+  --brand-blue: #0a7ba2;
+  --brand-sky: #3fb8e8;
+  --brand-yellow: #fcc304;
+  --brand-red: #eb1525;
+  --brand-green: #12a150;
+
+  --degrade-marque: linear-gradient(135deg, #023e58 0%, #035c75 38%, #0a7ba2 70%, #3fb8e8 100%);
+  --bande-drapeau: linear-gradient(90deg, #fcc304 0%, #fcc304 34%, #eb1525 34%, #eb1525 67%, #12a150 67%, #12a150 100%);
+}
+
+/* ---------- Thème clair (par défaut) ---------- */
+:root {
+  color-scheme: light;
+
+  --bg: #eef8fd;
+  --surface: #ffffff;
+  --surface-2: #e4f3fb;
+  --border: #cfe5f1;
+  --border-strong: #9cc6dd;
+
+  --text: #0a2a3b;
+  --text-muted: #46687c;
+
+  --accent: #0a7ba2;
+  --accent-hover: #066486;
+  --accent-contrast: #ffffff;
+  --accent-soft: #daf0fa;
+  --accent-soft-text: #054a66;
+
+  --ok: #12a150;
+  --ok-soft: #dcf6e8;
+  --ok-soft-text: #0a6636;
+
+  --warn: #fcc304;
+  --warn-soft: #fcc304;
+  --warn-soft-text: #3a2a00;
+
+  --danger: #eb1525;
+  --danger-soft: #ffe4e6;
+  --danger-soft-text: #b00e1b;
+
+  --sky: #3fb8e8;
+  --focus: #0a7ba2;
+  --logo-plate: #ffffff;
+}
+
+/* ---------- Thème sombre (au choix de l'utilisateur) ---------- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #061b28;
+  --surface: #0c2f43;
+  --surface-2: #123b53;
+  --border: #1f4d68;
+  --border-strong: #2f6b8c;
+
+  --text: #eaf6fc;
+  --text-muted: #9cc3d8;
+
+  --accent: #4cc3f0;
+  --accent-hover: #7ad5f5;
+  --accent-contrast: #04222f;
+  --accent-soft: #11425c;
+  --accent-soft-text: #c4ecfb;
+
+  --ok: #3dd68c;
+  --ok-soft: #0f3d2a;
+  --ok-soft-text: #8ff0bd;
+
+  --warn: #ffd34d;
+  --warn-soft: #fcc304;
+  --warn-soft-text: #3a2a00;
+
+  --danger: #ff6b72;
+  --danger-soft: #45161b;
+  --danger-soft-text: #ffa3a8;
+
+  --sky: #4cc3f0;
+  --focus: #7ad5f5;
+  --logo-plate: #ffffff;
+}
+
+/* ---------- Jetons exposés à Tailwind ---------- */
+@theme inline {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'Cascadia Mono', monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-text: var(--accent-soft-text);
+
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-soft-text: var(--ok-soft-text);
+
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-soft-text: var(--warn-soft-text);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-soft-text: var(--danger-soft-text);
+
+  --color-sky: var(--sky);
+  --color-marine: var(--brand-marine);
+  --color-petrole: var(--brand-petrole);
+  --color-focus: var(--focus);
+  --color-logo-plate: var(--logo-plate);
+
+  /* Arrondis : 8 px pour les contrôles, 12 px pour les panneaux */
+  --radius-control: 8px;
+  --radius-panel: 14px;
+
+  /* Échelle typographique fixe */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+}
+
+/* ---------- Base ---------- */
+/* Dans la couche « base » : les classes utilitaires (text-white...) l'emportent, comme prévu. */
+@layer base {
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--text);
+  letter-spacing: -0.01em;
+  font-weight: 650;
+}
+
+/* Identifiants, empreintes, codes : police à chasse fixe */
+code,
+kbd,
+samp,
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+}
+
+/* ---------- Signature de la marque ---------- */
+
+/* Fond dégradé bleu du logo */
+.fond-marque {
+  background: var(--degrade-marque);
+}
+
+/* Fine bande jaune, rouge, vert : les couleurs du pays, en haut de chaque écran */
+.bande-drapeau {
+  height: 4px;
+  background: var(--bande-drapeau);
+}
+
+/* ---------- Écran de chargement ---------- */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--degrade-marque);
+  color: #ffffff;
+}
+
+.splash-cercle {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  animation: splash-onde 3.2s ease-out infinite;
+}
+
+.splash-cercle:nth-child(2) {
+  animation-delay: 1.05s;
+}
+
+.splash-cercle:nth-child(3) {
+  animation-delay: 2.1s;
+}
+
+/* Lueur bleue : reste dans la famille du fond pour ne pas ternir les couleurs */
+.splash-soleil {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.5;
+}
+
+/* Anneau net, jaune ou rouge : comme le contour de la carte dans le logo */
+.splash-anneau {
+  position: absolute;
+  border-radius: 9999px;
+  border-style: solid;
+  border-width: 5px;
+}
+
+.splash-marque {
+  display: grid;
+  place-items: center;
+  width: 148px;
+  height: 148px;
+  border-radius: 36px;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 10px rgba(255, 255, 255, 0.16),
+    0 24px 60px rgba(2, 62, 88, 0.45);
+  animation: splash-entree 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.splash-marque img {
+  width: 108px;
+  height: 108px;
+  object-fit: contain;
+  animation: splash-respire 2.6s ease-in-out 900ms infinite;
+}
+
+.splash-titre {
+  animation: splash-monte 700ms cubic-bezier(0.16, 1, 0.3, 1) 350ms both;
+}
+
+.splash-devise {
+  animation: splash-monte 700ms cubic-bezier(0.16, 1, 0.3, 1) 550ms both;
+}
+
+.splash-barre {
+  position: relative;
+  width: 220px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.25);
+  animation: splash-monte 700ms cubic-bezier(0.16, 1, 0.3, 1) 750ms both;
+}
+
+.splash-barre::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: -45%;
+  width: 45%;
+  border-radius: 9999px;
+  background: var(--bande-drapeau);
+  animation: splash-glisse 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes splash-entree {
+  from {
+    opacity: 0;
+    transform: scale(0.6) rotate(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes splash-respire {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes splash-monte {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-onde {
+  from {
+    transform: scale(0.35);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes splash-glisse {
+  from {
+    left: -45%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+/* ---------- Icônes en orbite autour du logo (page de connexion) ---------- */
+
+.orbite {
+  position: absolute;
+  inset: 0;
+  animation: orbite-tourne 36s linear infinite;
+}
+
+.orbite-trace {
+  position: absolute;
+  inset: 16px;
+  border-radius: 9999px;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+}
+
+.orbite-pos {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 48px;
+  height: 48px;
+  transform: rotate(var(--a)) translateX(124px) rotate(calc(-1 * var(--a)));
+}
+
+/* La puce tourne à l'envers : l'icône reste droite pendant que l'orbite tourne */
+.orbite-puce {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 20px rgba(2, 62, 88, 0.3);
+  backdrop-filter: blur(4px);
+  animation: orbite-tourne 36s linear infinite reverse;
+}
+
+@keyframes orbite-tourne {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Animation de validation : chargement, puis « validé » ---------- */
+
+.valid-dialogue {
+  border: 0;
+  padding: 0;
+  margin: auto;
+  max-width: none;
+  background: transparent;
+  overflow: visible;
+}
+
+.valid-dialogue::backdrop {
+  background: rgba(2, 62, 88, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.valid-carte {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  min-width: 300px;
+  padding: 34px 48px 30px;
+  border-radius: 26px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 28px 80px rgba(2, 62, 88, 0.4);
+  animation: valid-entree 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.valid-carte p {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.valid-icone {
+  width: 96px;
+  height: 96px;
+}
+
+.valid-spinner {
+  transform-origin: 50% 50%;
+  animation: valid-tourne 900ms linear infinite;
+}
+
+.valid-fond {
+  transform-origin: 50% 50%;
+  animation: valid-pop 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.valid-coche {
+  stroke-dasharray: 44;
+  stroke-dashoffset: 44;
+  animation: valid-trace 380ms cubic-bezier(0.65, 0, 0.35, 1) 260ms forwards;
+}
+
+.valid-halo {
+  transform-origin: 50% 50%;
+  animation: valid-halo 700ms ease-out 200ms both;
+}
+
+@keyframes valid-entree {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes valid-tourne {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes valid-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes valid-trace {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes valid-halo {
+  from {
+    transform: scale(0.8);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+/* Sortie douce de l'écran de chargement */
+.splash-sortie {
+  animation: splash-fondu 520ms ease-in forwards;
+}
+
+@keyframes splash-fondu {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .splash-barre::before {
+    left: 0;
+    width: 100%;
+  }
+}

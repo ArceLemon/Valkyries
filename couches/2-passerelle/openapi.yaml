@@ -1,0 +1,280 @@
+openapi: 3.0.3
+info:
+  title: "KUMA BANA, couche 2 : passerelle d'échange"
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  description: |
+    Seule porte vers les registres. Une administration pose une question ; la passerelle vérifie
+    ses droits, interroge la source, calcule une réponse fermée (oui, non ou impossible) et détruit
+    la fiche. Les registres sont décrits en configuration (config/registres.php et profils) :
+    brancher le registre d'une autre équipe ne modifie pas le moteur.
+
+    Deux façons d'entrer, avec exactement les mêmes règles :
+    - le logiciel d'une administration, par clé d'API (/api/v1) ;
+    - le guichet de l'agent, par jeton de connexion (/api/demandes, /api/demarches).
+servers:
+  - url: http://127.0.0.1:8000
+    description: API (docker compose up)
+tags:
+  - name: Logiciel d'administration
+    description: Appels par clé d'API, éventuellement signés.
+  - name: Guichet agent
+    description: Appels par un agent connecté (bonus du défi).
+  - name: Résilience
+    description: État des registres, disjoncteur, reprise.
+paths:
+  /api/v1/demandes:
+    post:
+      operationId: postV1Demandes
+      tags: [Logiciel d'administration]
+      summary: Poser une question sur un citoyen
+      security:
+        - CleApi: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DemandeEntree' }
+      responses:
+        '201':
+          description: La demande est créée. Selon le régime, la réponse est immédiate ou en attente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Demande' }
+        '401':
+          description: Clé d'API absente, révoquée ou expirée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '403':
+          description: Clé non autorisée pour cette question, ou droit non accordé à l'organisme.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '422':
+          description: Données invalides.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+  /api/v1/demandes/{reference}:
+    get:
+      operationId: getV1DemandesParReference
+      tags: [Logiciel d'administration]
+      summary: Lire une demande posée par cette clé
+      security:
+        - CleApi: []
+      parameters:
+        - { $ref: '#/components/parameters/Reference' }
+      responses:
+        '200':
+          description: La demande et son état.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Demande' }
+        '404':
+          description: Demande inconnue pour cette clé.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+  /api/demandes:
+    get:
+      operationId: getDemandes
+      tags: [Guichet agent]
+      summary: Demandes de l'agent (ou de l'organisme pour un responsable)
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Les 100 dernières demandes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/Demande' }
+    post:
+      operationId: postDemandes
+      tags: [Guichet agent]
+      summary: Poser une question depuis le guichet
+      security:
+        - Jeton: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DemandeEntree' }
+      responses:
+        '201':
+          description: La demande est créée.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Demande' }
+        '403':
+          description: Droit non accordé à l'organisme pour cette question et cette finalité.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+  /api/demarches:
+    get:
+      operationId: getDemarches
+      tags: [Guichet agent]
+      summary: Démarches proposées (plusieurs questions lancées ensemble)
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Les démarches et leurs questions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/Demarche' }
+  /api/demarches/{code}/lancer:
+    post:
+      operationId: postDemarchesParCodeLancer
+      tags: [Guichet agent]
+      summary: Lancer toutes les questions d'une démarche pour un citoyen
+      description: Chaque question est traitée séparément. Un refus de droit sur l'une n'empêche pas les autres.
+      security:
+        - Jeton: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, example: creation-entreprise }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [citoyen]
+              properties:
+                citoyen: { $ref: '#/components/schemas/Citoyen' }
+      responses:
+        '201':
+          description: Le résultat de chaque question.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultatDemarche' }
+  /api/registres:
+    get:
+      operationId: getRegistres
+      tags: [Résilience]
+      summary: État en direct de chaque registre
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: En service, lent ou en panne, avec l'état du disjoncteur.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/EtatRegistre' }
+components:
+  securitySchemes:
+    CleApi:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Clé de l'organisme. Si l'organisme l'exige, la demande est aussi signée (X-Kuma-Horodatage, X-Kuma-Nonce, X-Kuma-Signature).
+    Jeton:
+      type: http
+      scheme: bearer
+      description: Jeton personnel obtenu par /api/auth/connexion.
+  parameters:
+    Reference:
+      name: reference
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    Citoyen:
+      type: object
+      description: Le citoyen est désigné par son seul identifiant unique (minimisation). Aucune autre donnée personnelle n'est demandée ; l'identifiant est chiffré puis effacé après traitement.
+      required: [identifiant]
+      properties:
+        identifiant: { type: string, maxLength: 64, example: BF-0001 }
+    DemandeEntree:
+      type: object
+      required: [question, finalite, citoyen]
+      properties:
+        question: { type: string, example: majeur }
+        parametre: { type: string, nullable: true }
+        finalite: { type: string, example: Immatriculation d'une entreprise }
+        citoyen: { $ref: '#/components/schemas/Citoyen' }
+    Demande:
+      type: object
+      description: Ce que voit l'administration demandeuse. La réponse est fermée ; jamais la donnée du registre.
+      required: [reference, question, libelle, finalite, statut, reponse, motif]
+      properties:
+        reference: { type: string }
+        lot: { type: string, nullable: true }
+        question: { type: string }
+        libelle: { type: string }
+        parametre: { type: string, nullable: true }
+        finalite: { type: string }
+        statut:
+          type: string
+          enum: [recue, en_attente_consentement, en_cours, en_attente_registre, terminee, ambigue, refusee_citoyen, expiree]
+        reponse: { type: string, nullable: true, enum: [oui, non, impossible] }
+        motif: { type: string, nullable: true }
+        source: { type: string, nullable: true }
+        consentement: { type: string, nullable: true }
+        attestation: { type: string, nullable: true, description: Jeton signé vérifiable par n'importe qui. }
+        creee_le: { type: string, format: date-time, nullable: true }
+        traitee_le: { type: string, format: date-time, nullable: true }
+    Demarche:
+      type: object
+      required: [code, libelle, finalite, questions]
+      properties:
+        code: { type: string }
+        libelle: { type: string }
+        finalite: { type: string }
+        questions:
+          type: array
+          items:
+            type: object
+            required: [question, libelle]
+            properties:
+              question: { type: string }
+              libelle: { type: string }
+              parametre: { type: string, nullable: true }
+    ResultatDemarche:
+      type: object
+      required: [lot, demarche, demandes, pieces_evitees]
+      properties:
+        lot: { type: string }
+        demarche: { type: string }
+        pieces_evitees: { type: integer }
+        demandes:
+          type: array
+          items: { type: object }
+    EtatRegistre:
+      type: object
+      required: [registre, etat, disjoncteur_ouvert]
+      properties:
+        registre: { type: string }
+        etat: { type: string, enum: [en_service, lent, panne] }
+        latence_ms: { type: integer, nullable: true }
+        verifie_le: { type: string, format: date-time, nullable: true }
+        disjoncteur_ouvert: { type: boolean }

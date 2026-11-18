@@ -1,0 +1,131 @@
+# KUMA BANA complet : registres de démonstration, API, planificateur et portail.
+#
+#   docker compose up --build -d     démarre tout
+#   docker compose down              arrête (les données sont conservées)
+#   docker compose down -v           arrête et efface les données : retour à la démonstration d'origine
+#
+# L'application mobile ne tourne pas dans Docker : elle passe par le portail (port 5173), qui
+# relaie l'API (/api) et les notifications push (/notifications) :
+#   flutter build apk --release --dart-define=API_URL=http://<adresse-du-PC>:5173/api
+
+name: kumabana
+
+x-registres: &registres
+  REGISTRE_ETAT_CIVIL_URL: http://registres:8081/etat-civil
+  REGISTRE_NATIONALITE_URL: http://registres:8081/nationalite
+  REGISTRE_CASIER_URL: http://registres:8081/casier
+  # Brancher les registres d'une autre équipe : REGISTRES_PROFIL=autre-equipe (voir couches/2-passerelle)
+  REGISTRES_PROFIL: ${REGISTRES_PROFIL:-}
+  REGISTRES_AUTRE_URL: ${REGISTRES_AUTRE_URL:-http://registres-autre:8082/v2}
+  REGISTRES_AUTRE_JETON: ${REGISTRES_AUTRE_JETON:-tok-autre-equipe}
+
+# Connexion à PostgreSQL (hôte, base et utilisateur sont fixés dans l'image de l'API)
+x-base: &base
+  DB_PASSWORD: ${KUMA_DB_PASSWORD:-kumabana-demo}
+
+services:
+  registres:
+    build: ./registres-demo
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/admin/etat"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Simulation des registres d'une autre équipe, au format différent du nôtre.
+  # Démarre seulement avec : docker compose --profile autre-equipe up -d
+  registres-autre:
+    build: ./registres-demo
+    command: ["php", "-S", "0.0.0.0:8082", "autre-equipe.php"]
+    ports:
+      - "8082:8082"
+    profiles: ["autre-equipe"]
+    restart: unless-stopped
+
+  # Serveur de notifications push (ntfy, logiciel libre, auto-hébergé : aucun service Google).
+  # Aucun port publié : seul l'API publie (réseau interne) ; le téléphone s'abonne en lecture
+  # seule via le portail (http://<PC>:5173/notifications/...).
+  ntfy:
+    image: binwiederhier/ntfy:v2.11.0
+    command: ["serve"]
+    environment:
+      NTFY_BASE_URL: http://localhost
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_CACHE_DURATION: 12h
+      NTFY_WEB_ROOT: disable
+    volumes:
+      - ntfy:/var/cache/ntfy
+    restart: unless-stopped
+
+  # Base de données PostgreSQL. Aucun port publié : seuls l'API et le planificateur y accèdent.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: kumabana
+      POSTGRES_USER: kumabana
+      POSTGRES_PASSWORD: ${KUMA_DB_PASSWORD:-kumabana-demo}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kumabana -d kumabana"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    image: kumabana-api
+    environment:
+      <<: [*registres, *base]
+      KUMA_INIT: "1"
+      KUMA_PUSH_URL: http://ntfy
+      APP_URL: ${APP_URL:-http://localhost:8000}
+    volumes:
+      - donnees:/data
+    ports:
+      # Port de l'API sur votre machine. Si le 8000 est pris par un autre projet : KUMA_API_PORT=8001
+      - "${KUMA_API_PORT:-8000}:8000"
+    depends_on:
+      registres:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8000/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+  planificateur:
+    image: kumabana-api
+    command: ["php", "artisan", "schedule:work"]
+    environment:
+      <<: [*registres, *base]
+      KUMA_PUSH_URL: http://ntfy
+    volumes:
+      - donnees:/data
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  portail:
+    build: ./portail
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  donnees:
+  postgres:
+  ntfy:

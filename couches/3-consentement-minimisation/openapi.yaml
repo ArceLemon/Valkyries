@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: "KUMA BANA, couche 3 : consentement et minimisation"
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  description: |
+    Cette couche décide ce qui peut sortir, et à quelles conditions.
+
+    Minimisation : seules trois réponses existent, oui, non ou impossible. Jamais une date, un nom
+    ou une fiche. Les règles de calcul sont une liste fermée de fonctions sûres (age_gte, equals,
+    is_empty, in_list, date_gte) : aucun code libre n'est possible.
+
+    Consentement : chaque question a un régime. « base_legale » signifie que la loi autorise la
+    vérification et que le citoyen est informé ; « consentement » signifie que rien n'est demandé
+    au registre tant que le citoyen n'a pas accepté. Un citoyen ne peut décider que pour lui-même.
+servers:
+  - url: http://127.0.0.1:8000
+    description: API (docker compose up)
+tags:
+  - name: Catalogue public
+    description: Ce qu'on a le droit de demander. Sans compte.
+  - name: Consentement
+    description: Réservé au citoyen concerné.
+paths:
+  /api/catalogue:
+    get:
+      operationId: getCatalogue
+      tags: [Catalogue public]
+      summary: Les questions publiées, avec leur régime et leur sensibilité
+      security: []
+      responses:
+        '200':
+          description: Le catalogue.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/Question' }
+  /api/catalogue/{code}:
+    get:
+      operationId: getCatalogueParCode
+      tags: [Catalogue public]
+      summary: Une question du catalogue
+      security: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string, example: majeur }
+      responses:
+        '200':
+          description: La question.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Question' }
+        '404':
+          description: Question inconnue ou non publiée.
+  /api/citoyen/demandes-a-valider:
+    get:
+      operationId: getCitoyenDemandesAValider
+      tags: [Consentement]
+      summary: Les demandes qui attendent l'accord du citoyen connecté
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Demandes en attente, non expirées.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/ConsentementACiter' }
+        '403':
+          description: Réservé aux comptes citoyens.
+  /api/citoyen/consentements:
+    get:
+      operationId: getCitoyenConsentements
+      tags: [Consentement]
+      summary: Les accords donnés, refusés, retirés ou expirés
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Les 100 dernières décisions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/Consentement' }
+  /api/citoyen/consentements/{id}/accepter:
+    post:
+      operationId: postCitoyenConsentementsParIdAccepter
+      tags: [Consentement]
+      summary: Accepter. Le registre est alors interrogé, et seule la réponse est transmise.
+      security:
+        - Jeton: []
+      parameters:
+        - { $ref: '#/components/parameters/IdConsentement' }
+      responses:
+        '200':
+          description: Accord enregistré.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '404':
+          description: Ce consentement n'existe pas pour ce citoyen.
+  /api/citoyen/consentements/{id}/refuser:
+    post:
+      operationId: postCitoyenConsentementsParIdRefuser
+      tags: [Consentement]
+      summary: Refuser. Le registre n'est jamais interrogé.
+      security:
+        - Jeton: []
+      parameters:
+        - { $ref: '#/components/parameters/IdConsentement' }
+      responses:
+        '200':
+          description: Refus enregistré.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '404':
+          description: Ce consentement n'existe pas pour ce citoyen.
+  /api/citoyen/consentements/{id}/retirer:
+    post:
+      operationId: postCitoyenConsentementsParIdRetirer
+      tags: [Consentement]
+      summary: Retirer un accord déjà donné. L'attestation émise n'est plus valable.
+      security:
+        - Jeton: []
+      parameters:
+        - { $ref: '#/components/parameters/IdConsentement' }
+      responses:
+        '200':
+          description: Accord retiré.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '404':
+          description: Ce consentement n'existe pas pour ce citoyen.
+  /api/demandes/{reference}/code:
+    post:
+      operationId: postDemandesParReferenceCode
+      tags: [Consentement]
+      summary: Accord donné par code SMS, pour le citoyen sans smartphone
+      description: "Le citoyen reçoit un code à 6 chiffres par SMS et le lit à l'agent, qui le saisit ici. Le code est valable 15 minutes, lié à cette demande, à usage unique, et bloqué après 3 essais. Il n'est stocké que sous forme d'empreinte et n'apparaît jamais dans une réponse de l'API."
+      security:
+        - Jeton: []
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^[0-9]{6}$', example: '482913' }
+      responses:
+        '200':
+          description: Le code est bon, l'accord est enregistré et le registre interrogé.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reference, statut, consentement]
+                properties:
+                  reference: { type: string }
+                  statut: { type: string }
+                  reponse: { type: string, nullable: true }
+                  consentement: { type: string, nullable: true }
+                  code_attendu: { type: boolean }
+        '404':
+          description: Cette demande n'existe pas pour votre organisme.
+        '409':
+          description: La demande n'attend plus de réponse, ou aucun code n'a été envoyé.
+        '410':
+          description: Le code a expiré.
+        '422':
+          description: Code mal formé ou incorrect. Le message indique les essais restants.
+        '423':
+          description: Trop d'essais. Le citoyen doit décider dans l'application.
+components:
+  securitySchemes:
+    Jeton:
+      type: http
+      scheme: bearer
+      description: Jeton personnel du citoyen (/api/auth/connexion).
+  parameters:
+    IdConsentement:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+  schemas:
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    Question:
+      type: object
+      required: [code, libelle, registre, sensibilite, regime, parametree, validite_minutes, reponses]
+      properties:
+        code: { type: string }
+        libelle: { type: string }
+        description: { type: string, nullable: true }
+        source: { type: string, nullable: true, description: Nom de l'organisme qui détient la donnée. }
+        registre: { type: string }
+        sensibilite: { type: string, enum: [normale, elevee] }
+        regime: { type: string, enum: [base_legale, consentement] }
+        parametree: { type: boolean }
+        validite_minutes: { type: integer }
+        reponses:
+          type: array
+          items: { type: string, enum: [oui, non, impossible] }
+        base_juridique: { type: string, nullable: true }
+    ConsentementACiter:
+      type: object
+      required: [id, organisme, question, finalite, sensibilite, expire_le]
+      properties:
+        id: { type: integer }
+        organisme: { type: string }
+        question: { type: string }
+        finalite: { type: string }
+        sensibilite: { type: string, enum: [normale, elevee] }
+        expire_le: { type: string, format: date-time }
+    Consentement:
+      type: object
+      required: [id, statut, organisme, question, finalite]
+      properties:
+        id: { type: integer }
+        statut: { type: string, enum: [accepte, retire, refuse, expire] }
+        organisme: { type: string }
+        question: { type: string }
+        finalite: { type: string }
+        decide_le: { type: string, format: date-time, nullable: true }

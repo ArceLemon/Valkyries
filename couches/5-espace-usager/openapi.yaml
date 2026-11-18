@@ -1,0 +1,271 @@
+openapi: 3.0.3
+info:
+  title: "KUMA BANA, couche 5 : espace usager"
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  description: |
+    Ce que le citoyen voit et peut faire : se connecter, retrouver chaque consultation de ses
+    données, voir ses accords, présenter ses preuves. Cette API est utilisée par l'espace citoyen
+    du portail web et par l'application mobile Flutter : même contrat, même sécurité.
+
+    Les décisions de consentement (accepter, refuser, retirer) sont décrites dans la couche 3.
+servers:
+  - url: http://127.0.0.1:8000
+    description: API (docker compose up)
+tags:
+  - name: Session
+  - name: Espace citoyen
+paths:
+  /api/auth/connexion:
+    post:
+      operationId: postAuthConnexion
+      tags: [Session]
+      summary: Se connecter
+      description: Le mot de passe est vérifié côté serveur et stocké sous forme d'empreinte. Une connexion échouée est enregistrée dans le journal.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mot_de_passe]
+              description: Un citoyen se connecte avec son identifiant, un agent avec son e-mail.
+              properties:
+                identifiant: { type: string, example: BF-0001 }
+                email: { type: string }
+                mot_de_passe: { type: string }
+      responses:
+        '200':
+          description: Un jeton personnel et le profil de l'utilisateur.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jeton, utilisateur]
+                properties:
+                  jeton: { type: string }
+                  utilisateur: { $ref: '#/components/schemas/Utilisateur' }
+        '401':
+          description: Identifiant ou mot de passe incorrect.
+  /api/auth/inscription:
+    post:
+      operationId: postAuthInscription
+      tags: [Session]
+      summary: Créer mon compte citoyen
+      description: |
+        Le citoyen crée lui-même son compte avec son identifiant, son nom, ses prénoms, son téléphone
+        et un mot de passe. L'identifiant doit exister à l'état civil (personne vivante), le nom et les
+        prénoms doivent être les siens (sans tenir compte des accents ni de la casse) et, si le registre connaît
+        un numéro pour cette personne, le numéro saisi doit être celui-là : on ne peut pas ouvrir un
+        compte sur l'identifiant d'un autre. La fiche du registre ne sert qu'à cette comparaison ; elle
+        n'est ni conservée ni journalisée. Le message d'échec est le même dans tous les cas. Limité à
+        5 essais par minute. Le numéro servira aussi au canal USSD (citoyen sans smartphone).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifiant, nom, prenoms, telephone, mot_de_passe]
+              properties:
+                identifiant: { type: string, example: BF-0004 }
+                nom: { type: string, example: KABORE }
+                prenoms: { type: string, example: Issouf }
+                telephone: { type: string, example: '+226 70 00 00 04' }
+                mot_de_passe: { type: string, minLength: 8 }
+      responses:
+        '201':
+          description: Compte créé ; le citoyen est connecté directement.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jeton, utilisateur]
+                properties:
+                  jeton: { type: string }
+                  utilisateur: { $ref: '#/components/schemas/Utilisateur' }
+        '409':
+          description: Un compte existe déjà pour cet identifiant.
+        '422':
+          description: Champs invalides, ou identité non confirmée par l'état civil.
+        '503':
+          description: Registre d'état civil indisponible ; rien n'est créé.
+  /api/auth/moi:
+    get:
+      operationId: getAuthMoi
+      tags: [Session]
+      summary: Qui est connecté ?
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Le profil, avec son rôle.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Utilisateur' }
+        '401':
+          description: Jeton absent, expiré ou révoqué.
+  /api/auth/deconnexion:
+    post:
+      operationId: postAuthDeconnexion
+      tags: [Session]
+      summary: Se déconnecter (détruit le jeton)
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Déconnecté.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+  /api/citoyen/historique:
+    get:
+      operationId: getCitoyenHistorique
+      tags: [Espace citoyen]
+      summary: Qui a consulté mes données ?
+      description: Chaque consultation avec l'organisme, la question, la finalité, le régime et la réponse. Il n'existe aucune consultation invisible pour le citoyen.
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Les 200 derniers événements qui concernent ce citoyen.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/Evenement' }
+        '403':
+          description: Réservé aux comptes citoyens.
+  /api/citoyen/preuves:
+    get:
+      operationId: getCitoyenPreuves
+      tags: [Espace citoyen]
+      summary: Mes attestations signées, avec leur code
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Les attestations délivrées à ce sujet.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/Preuve' }
+        '403':
+          description: Réservé aux comptes citoyens.
+  /api/citoyen/messages:
+    get:
+      operationId: getCitoyenMessages
+      tags: [Espace citoyen]
+      summary: Les messages qui m'ont prévenu qu'un accord m'attend
+      description: "Un message part quand une demande passe en attente d'accord. Il dit qui demande et quelle question, jamais une donnée."
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Les 50 derniers messages, du plus récent au plus ancien.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donnees]
+                properties:
+                  donnees:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, canal, message, envoye_le]
+                      properties:
+                        id: { type: integer }
+                        canal: { type: string, example: simule }
+                        message: { type: string }
+                        envoye_le: { type: string, format: date-time }
+        '403':
+          description: Réservé aux comptes citoyens.
+  /api/citoyen/notifications/abonnement:
+    get:
+      operationId: getCitoyenNotificationsAbonnement
+      tags: [Espace citoyen]
+      summary: Mon canal de notifications push
+      description: |
+        Notifications push sans Google ni Apple : un serveur ntfy libre et auto-hébergé. Chaque
+        citoyen a un sujet secret (HMAC de la clé de la plateforme), connu de son seul compte.
+        L'application s'y abonne en lecture seule via le portail (GET {chemin}) ; seul le serveur
+        publie, depuis le réseau interne. Le message ne contient aucune donnée : il invite à
+        ouvrir l'application, qui lit le détail par cette API.
+      security:
+        - Jeton: []
+      responses:
+        '200':
+          description: Le sujet et le chemin d'abonnement, ou actif=false si le push est désactivé.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [actif, sujet, chemin]
+                properties:
+                  actif: { type: boolean }
+                  sujet: { type: string, nullable: true, example: kb-7ba7c4e091d434a67524be3fde520fd1 }
+                  chemin: { type: string, nullable: true, example: /notifications/kb-7ba7c4e091d434a67524be3fde520fd1/json }
+        '403':
+          description: Réservé aux comptes citoyens.
+components:
+  securitySchemes:
+    Jeton:
+      type: http
+      scheme: bearer
+      description: Jeton personnel obtenu par /api/auth/connexion.
+  schemas:
+    Utilisateur:
+      type: object
+      required: [id, nom, email, role]
+      properties:
+        id: { type: integer }
+        nom: { type: string }
+        email: { type: string, nullable: true, description: "Absent pour un citoyen inscrit par l'application." }
+        identifiant: { type: string, nullable: true, description: "Identifiant unique, pour un citoyen seulement." }
+        role: { type: string, enum: [citoyen, agent, responsable, gestionnaire, administrateur, auditeur] }
+        organisme:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            nom: { type: string }
+            sigle: { type: string }
+    Evenement:
+      type: object
+      required: [date, type]
+      properties:
+        date: { type: string }
+        type: { type: string, enum: [donnee.consultee, consentement.accepte, consentement.refuse, consentement.retire] }
+        organisme: { type: string, nullable: true }
+        question: { type: string, nullable: true }
+        finalite: { type: string, nullable: true }
+        regime: { type: string, nullable: true }
+        reponse: { type: string, nullable: true }
+    Preuve:
+      type: object
+      required: [reference, question, organisme, valide_jusqu_au, revoquee, jeton]
+      properties:
+        reference: { type: string }
+        question: { type: string }
+        organisme: { type: string }
+        valide_jusqu_au: { type: string, format: date-time }
+        revoquee: { type: boolean }
+        jeton: { type: string, description: "Jeton signé, encodé dans le code QR." }

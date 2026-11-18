@@ -1,0 +1,70 @@
+[
+  {
+    "identifiant": "BF-0001",
+    "telephone": "+226 70 00 00 01",
+    "nom": "ILBOUDO",
+    "prenoms": ["Ousmane"],
+    "naissance": { "date": "1996-03-14", "lieu": "Ouagadougou" },
+    "statut": "vivant",
+    "nationalite": "BF",
+    "certificat_nationalite": "2030-06-30",
+    "condamnations": []
+  },
+  {
+    "identifiant": "BF-0002",
+    "telephone": "+226 70 00 00 02",
+    "nom": "ILBOUDO",
+    "prenoms": ["Ousmane"],
+    "naissance": { "date": "2011-08-02", "lieu": "Koudougou" },
+    "statut": "vivant",
+    "nationalite": "BF",
+    "certificat_nationalite": "2031-01-15",
+    "condamnations": []
+  },
+  {
+    "identifiant": "BF-0003",
+    "telephone": "+226 70 00 00 03",
+    "nom": "SAWADOGO",
+    "prenoms": ["Aminata"],
+    "naissance": { "date": "1988-11-23", "lieu": "Bobo-Dioulasso" },
+    "statut": "vivant",
+    "nationalite": "BF",
+    "certificat_nationalite": "2029-03-01",
+    "condamnations": [
+      { "nature": "demonstration", "annee": 2015 }
+    ]
+  },
+  {
+    "identifiant": "BF-0004",
+    "telephone": "+226 70 00 00 04",
+    "nom": "KABORE",
+    "prenoms": ["Issouf"],
+    "naissance": { "date": "1975-05-09", "lieu": "Banfora" },
+    "statut": "vivant",
+    "nationalite": "CI",
+    "certificat_nationalite": "2024-12-31",
+    "condamnations": []
+  },
+  {
+    "identifiant": "BF-0005",
+    "telephone": "+226 70 00 00 05",
+    "nom": "OUEDRAOGO",
+    "prenoms": ["Fatimata"],
+    "naissance": { "date": "2001-01-30", "lieu": "Ouahigouya" },
+    "statut": "vivant",
+    "nationalite": "BF",
+    "certificat_nationalite": "2032-09-10",
+    "condamnations": []
+  },
+  {
+    "identifiant": "BF-0006",
+    "telephone": "+226 70 00 00 06",
+    "nom": "ZONGO",
+    "prenoms": ["Adama"],
+    "naissance": { "date": "1950-02-12", "lieu": "Dedougou" },
+    "statut": "decede",
+    "nationalite": "BF",
+    "certificat_nationalite": "2026-01-01",
+    "condamnations": []
+  }
+]

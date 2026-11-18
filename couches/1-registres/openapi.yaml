@@ -1,0 +1,223 @@
+openapi: 3.0.3
+info:
+  title: "KUMA BANA, couche 1 : registres sources"
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  description: |
+    Contrat que doit respecter un registre pour être branché sur la passerelle d'échange.
+    Il décrit nos trois registres de démonstration (état civil, nationalité, casier) avec des
+    citoyens FICTIFS. Un registre au format différent n'a pas à changer : on décrit son format
+    dans un profil de la passerelle (voir couches/2-passerelle).
+
+    Les routes d'administration de la simulation (/admin/panne, /admin/etat), qui servent à
+    couper un registre devant le jury, sont hors contrat.
+servers:
+  - url: http://127.0.0.1:8081
+    description: Registres de démonstration (docker compose up)
+security:
+  - CleApi: []
+tags:
+  - name: Santé
+  - name: État civil
+  - name: Nationalité
+  - name: Casier
+paths:
+  /etat-civil/sante:
+    get:
+      operationId: getEtatCivilSante
+      tags: [Santé]
+      summary: État de santé du registre d'état civil
+      security: []
+      responses:
+        '200':
+          description: Le registre répond.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sante' }
+        '503':
+          description: Registre indisponible (panne simulée).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erreur' }
+  /nationalite/sante:
+    get:
+      operationId: getNationaliteSante
+      tags: [Santé]
+      summary: État de santé du registre de la nationalité
+      security: []
+      responses:
+        '200':
+          description: Le registre répond.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sante' }
+  /casier/sante:
+    get:
+      operationId: getCasierSante
+      tags: [Santé]
+      summary: État de santé du registre du casier
+      security: []
+      responses:
+        '200':
+          description: Le registre répond.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sante' }
+  /etat-civil/citoyens/{identifiant}:
+    get:
+      operationId: getEtatCivilCitoyensParIdentifiant
+      tags: [État civil]
+      summary: Fiche d'état civil d'un citoyen
+      parameters:
+        - { $ref: '#/components/parameters/Identifiant' }
+      responses:
+        '200':
+          description: La fiche. La passerelle en tire une réponse puis la détruit.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FicheEtatCivil' }
+        '401':
+          description: Clé d'API absente ou invalide.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erreur' }
+        '404':
+          description: Citoyen inconnu de ce registre.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erreur' }
+  /etat-civil/recherche:
+    get:
+      operationId: getEtatCivilRecherche
+      tags: [État civil]
+      summary: Recherche par attributs (quand on n'a pas l'identifiant)
+      description: Correspondance exacte après normalisation. La liste peut contenir plusieurs personnes ; la passerelle refuse alors de deviner.
+      parameters:
+        - { name: nom, in: query, required: true, schema: { type: string } }
+        - { name: prenoms, in: query, schema: { type: string } }
+        - { name: date_naissance, in: query, schema: { type: string, format: date } }
+        - { name: lieu_naissance, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Zéro, une ou plusieurs fiches.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [resultats]
+                properties:
+                  resultats:
+                    type: array
+                    items: { $ref: '#/components/schemas/FicheEtatCivil' }
+  /nationalite/citoyens/{identifiant}:
+    get:
+      operationId: getNationaliteCitoyensParIdentifiant
+      tags: [Nationalité]
+      summary: Nationalité d'un citoyen et validité de son certificat
+      parameters:
+        - { $ref: '#/components/parameters/Identifiant' }
+      responses:
+        '200':
+          description: La fiche de nationalité.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FicheNationalite' }
+        '404':
+          description: Citoyen inconnu de ce registre.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erreur' }
+  /casier/citoyens/{identifiant}:
+    get:
+      operationId: getCasierCitoyensParIdentifiant
+      tags: [Casier]
+      summary: Inscriptions au casier d'un citoyen
+      description: Donnée sensible. La passerelle ne l'interroge qu'avec l'accord du citoyen et ne retransmet jamais le détail.
+      parameters:
+        - { $ref: '#/components/parameters/Identifiant' }
+      responses:
+        '200':
+          description: La fiche du casier.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FicheCasier' }
+        '404':
+          description: Citoyen inconnu de ce registre.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erreur' }
+components:
+  securitySchemes:
+    CleApi:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Clé du registre, de la forme demo-<registre> en démonstration.
+  parameters:
+    Identifiant:
+      name: identifiant
+      in: path
+      required: true
+      description: Identifiant unique du citoyen (le même dans tous les registres).
+      schema: { type: string, example: BF-0001 }
+  schemas:
+    Sante:
+      type: object
+      required: [registre, etat]
+      properties:
+        registre: { type: string }
+        etat: { type: string, enum: [ok] }
+    Erreur:
+      type: object
+      required: [erreur]
+      properties:
+        erreur: { type: string }
+    FicheEtatCivil:
+      type: object
+      required: [identifiant, identite, naissance, statut]
+      properties:
+        identifiant: { type: string }
+        identite:
+          type: object
+          required: [nom, prenoms]
+          properties:
+            nom: { type: string }
+            prenoms: { type: array, items: { type: string } }
+        naissance:
+          type: object
+          required: [date, lieu]
+          properties:
+            date: { type: string, format: date }
+            lieu: { type: string }
+        statut: { type: string, enum: [vivant, decede] }
+        contact:
+          type: object
+          description: Facultatif. Le numéro déclaré sert à confirmer l'inscription du citoyen sur KUMA BANA ; il n'est jamais conservé.
+          properties:
+            telephone: { type: string, nullable: true, example: '+226 70 00 00 04' }
+    FicheNationalite:
+      type: object
+      required: [identifiant, nationalite, certificat]
+      properties:
+        identifiant: { type: string }
+        nationalite: { type: string, description: "Code pays sur deux lettres", example: BF }
+        certificat:
+          type: object
+          required: [valide_jusqu]
+          properties:
+            valide_jusqu: { type: string, format: date }
+    FicheCasier:
+      type: object
+      required: [identifiant, condamnations]
+      properties:
+        identifiant: { type: string }
+        condamnations:
+          type: array
+          items:
+            type: object
+            required: [nature, annee]
+            properties:
+              nature: { type: string }
+              annee: { type: integer }
